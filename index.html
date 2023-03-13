@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>ReDoSHunter</title>
+  <!--     <script src="http://cdn.bootcss.com/jquery/1.12.3/jquery.min.js"></script> -->
+
+  <script src="jquery.min.js"></script>
+
+  <script>
+
+//在此书写你的jquery代码
+
+  </script>
+  <link rel="stylesheet" href="layui.css" media="all">
+</head>
+
+<body style="background: #eeeeee">
+  <div style="margin-left: 20%; margin-top: 50px">
+    <h1>ReDoSDetecter</h1>
+  </div>
+  <div
+    style="margin-left: 20%;margin-right: 20%;margin-top: 5px ; margin-bottom:20px ;background: #999999 ;height: 5px">
+  </div>
+  <div style="margin-left: 20%;margin-right: 20%;margin-top: 20px ;">
+    <textarea id="input" style="width: 100%;resize: none;height: 100px;line-height: inherit"
+      placeholder="/ insert your regular expression here " class="layui-textarea"
+      onkeypress="return CheckInfo(event.keyCode)"></textarea>
+  </div>
+  <div class="layui-form-item" style="margin-left: 20%; margin-top: 5px">
+    <input type="radio" name="validate_type" value="s" checked="checked" /> s模式(检测到一个真实漏洞即停止) <br />
+    <input type="radio" name="validate_type" value="m" /> m模式(检测全部真实漏洞) <br /><br />
+    <button style="height: auto ;width: 100px" class="layui-btn" onclick="btn()">check</button>
+  </div>
+
+  <fieldset id="tip" class="layui-elem-field layui-field-title" style="margin-top: 30px;display: none;margin-left: 20%">
+    <legend id="tip_text">this may takes few seconds,please wait ...</legend>
+  </fieldset>
+  <fieldset id="redos" class="layui-elem-field layui-field-title"
+    style="margin-top: 30px;display: none;margin-left: 20%">
+    <legend id="redos_text"></legend>
+  </fieldset>
+  <fieldset id="time" class="layui-elem-field layui-field-title"
+    style="margin-top: 30px;display: none;margin-left: 20%">
+    <legend id="time_text"></legend>
+  </fieldset>
+  <fieldset id="attack_string_title" class="layui-elem-field layui-field-title"
+    style="margin-top: 30px;display: none;margin-left: 20%">
+    <legend>ATTACK STRINGS</legend>
+  </fieldset>
+  <ul class="layui-timeline" id="attack_string_content" style="margin-left: 20%">
+  </ul>
+
+
+  <div id="dufu" style="text-align: center ;width: 100%; display: none;margin-bottom: 50px">
+    <p align="center" style="font-family: 'Kaiti SC'">
+      <br> 安得广厦千万间，大庇天下寒士俱欢颜！风雨不动安如山。 呜呼！何时眼前突兀见此屋，吾庐独破受冻死亦足！
+    </p>
+  </div>
+
+  <div style="display: flex; justify-content:space-around; padding:5px">
+    <div>
+      <p style="font-size: 12px;line-height: 15px;color: #999;text-align: center">
+        Last updated: 2023-3-13 <a href="mailto:1048606782@qq.com">问题与建议</a>
+      </p>
+    </div>
+  </div>
+  </div>
+
+
+  <script src="layui/layui.js" charset="utf-8"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script>
+    // var ip = "http://39.105.171.199:8080";
+    // var ip = "http://8.140.103.183:8080";
+    // var ip = "http://127.0.0.1:8080";
+    var ip = "http://39.105.174.52:8090";
+
+    var input_text = document.getElementById("input");
+    var emailtext = document.getElementById("eamil");
+    var tip = document.getElementById("tip");
+    var redos = document.getElementById("redos");
+    var redos_text = document.getElementById("redos_text");
+    var time = document.getElementById("time");
+    var time_text = document.getElementById("time_text");
+    var attack_title = document.getElementById("attack_string_title");
+    var attackDIV = document.getElementById("attack_string_content");
+    var ly;
+    layui.use('layer', function () {
+      ly = layui.layer;
+    });
+
+    /**
+     * @return {boolean}
+     */
+    function CheckInfo(keyCode) {
+      if (keyCode === 13) {
+        alert(666);
+        btn();
+        return false;
+      }
+      return true;
+    }
+
+    function btn() {
+      var validate_type = $('input:radio[name="validate_type"]:checked').val();
+      var regex = input_text.value; //将输入框的值赋给div标签
+      alert(regex);
+      if (regex.length !== 0) {
+        attack_title.style.display = "none";
+        redos.style.display = "none";
+        time.style.display = "none";
+        attackDIV.style.display = "none";
+        var childs = attackDIV.childNodes;
+        for (var i = childs.length - 1; i >= 0; i--) {
+          attackDIV.removeChild(childs[i]);
+        }
+        tip.style.display = "none";
+        eventClick("check", "regex", regex);
+        recovery(regex, validate_type)
+      }
+    }
+
+    recovery = function (regex, model) {
+      ly.load();
+      var api = "/check";
+      let param = new URLSearchParams();//使用URLSearchParams传参数
+      param.append("regex", regex);
+      param.append("model", model);
+      axios.post(ip + api,
+        param
+      )
+        .then(function (value) {
+          ly.closeAll('loading');
+          console.log(value);
+
+          tip.style.display = "none";
+
+          redos.style.display = "block";
+          redos_text.innerText = "Vulnerable：" + value.data.reDos;
+
+          time.style.display = "block";
+          time_text.innerText = "running time:" + value.data.time + "ms";
+
+
+          if (value.data.reDos) {
+            document.getElementById("dufu").style.display = "block";
+            var attacks = value.data.attackStrings;
+            attack_title.style.display = "block";
+            attackDIV.style.display = "block";
+
+            for (let i = 0; i < attacks.length; i++) {
+              var li = document.createElement("li");
+              li.className = "layui-timeline-item";
+              var div = document.createElement("div");
+              div.className = "layui-timeline-content layui-text";
+
+              var h3 = document.createElement("h3");
+              h3.className = "layui-timeline-title";
+              h3.textContent = (i + 1) + "th" + " attack-string ";
+
+              var p = document.createElement("p");
+
+              var ul = document.createElement("ul");
+              var li1 = document.createElement("li");
+              li1.style.whiteSpace = "pre";
+              li1.textContent = "prefix:" + attacks[i].prefix;
+              var li2 = document.createElement("li");
+              li2.style.whiteSpace = "pre";
+              li2.textContent = "infix:" + attacks[i].repeat;
+              var li3 = document.createElement("li");
+              li3.style.whiteSpace = "pre";
+              li3.textContent = "suffix:" + attacks[i].suffix;
+              var li4 = document.createElement("li");
+              li4.style.whiteSpace = "pre";
+              li4.textContent = "repeatTimes:" + attacks[i].repeatTimes;
+              ul.appendChild(li1);
+              ul.appendChild(li2);
+              ul.appendChild(li3);
+              ul.appendChild(li4);
+              p.appendChild(ul);
+              div.appendChild(h3);
+              div.appendChild(p);
+
+              li.appendChild(div);
+              attackDIV.appendChild(li);
+              console.log(attackDIV.className);
+
+
+            }
+          }
+        })
+        .catch(function (reason) {
+          ly.closeAll('loading');
+          tip.style.display = "none";
+          console.log(reason);
+          window.alert("unkonw error " + reason.data);
+        });
+    };
+
+    eventClick = function (event, key, value) {
+      var api = "/uploadClick";
+      let param = new URLSearchParams();//使用URLSearchParams传参数
+      param.append("event", event);
+      param.append("key", key);
+      param.append("value", value);
+      axios.post(ip + api, param)
+        .then(function (value) {
+        })
+        .catch(function (reason) {
+        });
+
+    };
+    init = function () {
+      var api = "/init";
+      axios.get(ip + api)
+        .then(function (value) {
+        })
+        .catch(function (reason) {
+        });
+    };
+    init();
+
+  </script>
+</body>
+
+</html>
